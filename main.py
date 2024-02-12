@@ -5,6 +5,7 @@ import time
 import schedule
 import paramiko
 import zipfile
+import sys
 
 class BackupManager:
     def __init__(self, db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port):
@@ -29,10 +30,10 @@ class BackupManager:
             print(f"Erro ao criar o arquivo ZIP: {str(error)}")
             return None
 
-    def ssh_send_file(self, source, destination):
+    def ssh_send_file(self, source, destination, username, password):
         transport = paramiko.Transport((self.REMOTE_HOST, 22))
         try:
-            transport.connect(username=self.REMOTE_USER, password=self.REMOTE_PASS)
+            transport.connect(username=username, password=password)
             sftp = paramiko.SFTPClient.from_transport(transport)
 
             try:
@@ -49,12 +50,40 @@ class BackupManager:
         finally:
             transport.close()
 
+    def delete_old_backups(self):
+        try:
+            transport = paramiko.Transport((self.REMOTE_HOST, 22))
+            transport.connect(username=self.REMOTE_USER, password=self.REMOTE_PASS)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            
+            files = sftp.listdir(self.REMOTE_BACKUP_PATH)
+            thirty_days_ago = time.time() - (30 * 24 * 60 * 60)
+
+            for file in files:
+                filepath = os.path.join(self.REMOTE_BACKUP_PATH, file)
+                file_stats = sftp.stat(filepath)
+                if file_stats.st_mtime < thirty_days_ago:
+                    sftp.remove(filepath)
+                    print(f"Backup antigo '{file}' removido do servidor remoto.")
+
+            sftp.close()
+            transport.close()
+        except Exception as error:
+            print(f"Erro ao excluir backups antigos: {str(error)}")
+
+    def delete_local_backup(self, backup_path):
+        try:
+            os.remove(backup_path)
+            print(f"Backup local '{backup_path}' excluído com sucesso.")
+        except Exception as error:
+            print(f"Erro ao excluir o backup local: {str(error)}")
+
     def perform_backup(self, zip_locally=True):
         timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
         backup_file = f"{self.DB_NAME}_{timestamp}.backup_postgresql"
         local_backup_path = os.path.join(self.BACKUP_PATH, backup_file)
         remote_backup_path = os.path.join(self.REMOTE_BACKUP_PATH, backup_file)
-
+        
         os.environ['PGPASSWORD'] = self.DB_PASS
         backup_command = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_backup_path}"
 
@@ -68,18 +97,21 @@ class BackupManager:
                 local_backup_path = f"{local_backup_path}.zip"
 
                 if zip_path:
-                    self.ssh_send_file(local_backup_path, remote_backup_path)
+                    self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
                     print(f"Backup transferido: {self.REMOTE_HOST}:{remote_backup_path}")
                     print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
                     print(f'Backup compactado com sucesso em {zip_path}')
             else:
-                self.ssh_send_file(local_backup_path, remote_backup_path)
+                self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
                 print(f"Backup transferido: {self.REMOTE_HOST}:{remote_backup_path}")
                 print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
+
+            self.delete_old_backups()
+            self.delete_local_backup(local_backup_path)
         except Exception as error:
             print(f"Erro ao transferir o backup: {str(error)}")
 
-def schedule_backup(db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port, zip_locally, scheduled_time):
+def schedule_backup(db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port, scheduled_time):
     backup_manager = BackupManager(
         db_host, db_user, db_pass, db_name,
         backup_path, remote_host, remote_user,
@@ -87,7 +119,7 @@ def schedule_backup(db_host, db_user, db_pass, db_name, backup_path, remote_host
     )
 
     schedule.every().day.at(scheduled_time).do(
-        backup_manager.perform_backup, zip_locally)
+        backup_manager.perform_backup)
 
     while True:
         schedule.run_pending()
@@ -107,7 +139,6 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--REMOTE_PASS', help='Senha associada ao usuário do servidor remoto.')
     parser.add_argument('-b', '--REMOTE_BACKUP_PATH', help='Caminho no servidor remoto onde o backup será armazenado.')
     parser.add_argument('-C', '--REMOTE_PORT', help='Porta SSH do servidor remoto.')
-    parser.add_argument('-z', '--zip_locally', action='store_true', help='Zipar o backup localmente.')
 
     args = parser.parse_args()
 
@@ -119,5 +150,5 @@ if __name__ == "__main__":
         args.DB_HOST, args.DB_USER, args.DB_PASS, args.DB_NAME,
         args.BACKUP_PATH, args.REMOTE_HOST, args.REMOTE_USER,
         args.REMOTE_PASS, args.REMOTE_BACKUP_PATH, args.REMOTE_PORT,
-        args.zip_locally, args.scheduled_time
+        args.scheduled_time
     )
