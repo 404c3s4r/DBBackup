@@ -1,2 +1,2 @@
 # backup_postgresql_linux
-Criei o Script inicialmente para automatizar o processo de backup em uma empresa que possuía um sistema Linux com o PostgreSQL instalado (por isso dei o nome de postgresbackup).
+I created the script initially to automate the backup process in a company that had a Linux system with PostgreSQL installed (that's why I named it postgresbackup).
