@@ -73,7 +73,7 @@ class BackupManager:
 
     def delete_local_backup(self, backup_path):
         try:
-            os.remove(backup_path)
+            subprocess.run(["rm", "-rf", backup_path])
             print(f"Backup local '{backup_path}' excluído com sucesso.")
         except Exception as error:
             print(f"Erro ao excluir o backup local: {str(error)}")
