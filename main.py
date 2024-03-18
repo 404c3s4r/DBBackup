@@ -79,43 +79,43 @@ class BackupManager:
             print(f"Erro ao excluir o backup local: {str(error)}")
 
     def perform_backup(self, zip_locally=True):
-    timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
-    backup_file = f"{self.DB_NAME}_{timestamp}.backup_postgresql"
-    local_backup_path = os.path.join(self.BACKUP_PATH, backup_file)
-    remote_backup_path = os.path.join(self.REMOTE_BACKUP_PATH, backup_file)
-    
-    os.environ['PGPASSWORD'] = self.DB_PASS
-    backup_command = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_backup_path}"
+        timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
+        backup_file = f"{self.DB_NAME}_{timestamp}.backup_postgresql"
+        local_backup_path = os.path.join(self.BACKUP_PATH, backup_file)
+        remote_backup_path = os.path.join(self.REMOTE_BACKUP_PATH, backup_file)
+        
+        os.environ['PGPASSWORD'] = self.DB_PASS
+        backup_command = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_backup_path}"
 
-    print(f"Início do backup em: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Início do backup em: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    try:
-        os.system(backup_command)
+        try:
+            os.system(backup_command)
 
-        if zip_locally:
-            zip_path = self.zip_file(local_backup_path, f"{local_backup_path}.zip")
-            local_backup_path = f"{local_backup_path}.zip"
+            if zip_locally:
+                zip_path = self.zip_file(local_backup_path, f"{local_backup_path}.zip")
+                local_backup_path = f"{local_backup_path}.zip"
 
-            if zip_path:
+                if zip_path:
+                    try:
+                        self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
+                        print(f"Backup transferido (compactado): {self.REMOTE_HOST}:{remote_backup_path}")
+                        print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
+                        print(f'Backup compactado com sucesso em {zip_path}')
+                    except Exception as error:
+                        print(f"Erro ao transferir o backup compactado para o servidor remoto: {str(error)}")
+            else:
                 try:
                     self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
-                    print(f"Backup transferido (compactado): {self.REMOTE_HOST}:{remote_backup_path}")
+                    print(f"Backup transferido (não compactado): {self.REMOTE_HOST}:{remote_backup_path}")
                     print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
-                    print(f'Backup compactado com sucesso em {zip_path}')
                 except Exception as error:
-                    print(f"Erro ao transferir o backup compactado para o servidor remoto: {str(error)}")
-        else:
-            try:
-                self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
-                print(f"Backup transferido (não compactado): {self.REMOTE_HOST}:{remote_backup_path}")
-                print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
-            except Exception as error:
-                print(f"Erro ao transferir o backup não compactado para o servidor remoto: {str(error)}")
+                    print(f"Erro ao transferir o backup não compactado para o servidor remoto: {str(error)}")
 
-        self.delete_old_backups()
-        self.delete_local_backup(local_backup_path)
-    except Exception as error:
-        print(f"Erro ao transferir o backup: {str(error)}")
+            self.delete_old_backups()
+            self.delete_local_backup(local_backup_path)
+        except Exception as error:
+            print(f"Erro ao transferir o backup: {str(error)}")
 
 def schedule_backup(db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port, scheduled_time):
     backup_manager = BackupManager(
