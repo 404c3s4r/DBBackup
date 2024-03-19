@@ -8,153 +8,149 @@ import zipfile
 import sys
 
 class BackupManager:
-    def __init__(self, db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port):
+    def __init__(self, db_host, db_user, db_pass, db_name, bkup_path, rmt_host, rmt_user, rmt_pass, rmt_bkup_path, rmt_port):
         self.DB_HOST = db_host
         self.DB_USER = db_user
         self.DB_PASS = db_pass
         self.DB_NAME = db_name
-        self.BACKUP_PATH = backup_path
-        self.REMOTE_HOST = remote_host
-        self.REMOTE_USER = remote_user
-        self.REMOTE_PASS = remote_pass
-        self.REMOTE_BACKUP_PATH = remote_backup_path
-        self.REMOTE_PORT = remote_port
+        self.BKUP_PATH = bkup_path
+        self.RMT_HOST = rmt_host
+        self.RMT_USER = rmt_user
+        self.RMT_PASS = rmt_pass
+        self.RMT_BKUP_PATH = rmt_bkup_path
+        self.RMT_PORT = rmt_port
 
-    def zip_file(self, source, destination):
+    def zip_file(self, src, dest):
         try:
-            with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(source, os.path.basename(source))
-                print(f"Arquivo zip criado com sucesso em {destination}")
-                return destination
+            with zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED) as zf:
+                zf.write(src, os.path.basename(src))
+                print(f"Zip file created successfully at {dest}")
+                return dest
         except Exception as error:
-            print(f"Erro ao criar o arquivo ZIP: {str(error)}")
+            print(f"Error creating ZIP file: {str(error)}")
             return None
 
-    def ssh_send_file(self, source, destination, username, password):
-        transport = paramiko.Transport((self.REMOTE_HOST, 22))
+    def ssh_send_file(self, src, dest, usr, pwd):
+        transport = paramiko.Transport((self.RMT_HOST, 22))
         try:
-            transport.connect(username=username, password=password)
+            transport.connect(username=usr, password=pwd)
             sftp = paramiko.SFTPClient.from_transport(transport)
 
             try:
-                sftp.put(source, destination)
-                print(f"Arquivo '{source}' enviado com sucesso para '{destination}' no servidor '{self.REMOTE_HOST}'.")
+                sftp.put(src, dest)
+                print(f"File '{src}' sent successfully to '{dest}' on server '{self.RMT_HOST}'.")
             except FileNotFoundError:
-                print(f"Erro: O caminho especificado '{destination}' não está correto ou não existe.")
+                print(f"Error: The specified path '{dest}' is incorrect or does not exist.")
             except Exception as error:
-                print(f"Erro ao enviar o arquivo: {str(error)}")
+                print(f"Error sending file: {str(error)}")
             finally:
                 sftp.close()
         except Exception as error:
-            print(f"Erro ao conectar ao servidor remoto: {str(error)}")
+            print(f"Error connecting to remote server: {str(error)}")
         finally:
             transport.close()
 
-    def delete_old_backups(self):
+    def delete_old_bkups(self):
         try:
-            transport = paramiko.Transport((self.REMOTE_HOST, 22))
-            transport.connect(username=self.REMOTE_USER, password=self.REMOTE_PASS)
+            transport = paramiko.Transport((self.RMT_HOST, 22))
+            transport.connect(username=self.RMT_USER, password=self.RMT_PASS)
             sftp = paramiko.SFTPClient.from_transport(transport)
             
-            files = sftp.listdir(self.REMOTE_BACKUP_PATH)
+            files = sftp.listdir(self.RMT_BKUP_PATH)
             thirty_days_ago = time.time() - (30 * 24 * 60 * 60)
 
             for file in files:
-                filepath = os.path.join(self.REMOTE_BACKUP_PATH, file)
+                filepath = os.path.join(self.RMT_BKUP_PATH, file)
                 file_stats = sftp.stat(filepath)
                 if file_stats.st_mtime < thirty_days_ago:
                     sftp.remove(filepath)
-                    print(f"Backup antigo '{file}' removido do servidor remoto.")
+                    print(f"Old backup '{file}' removed from remote server.")
 
             sftp.close()
             transport.close()
         except Exception as error:
-            print(f"Erro ao excluir backups antigos: {str(error)}")
+            print(f"Error deleting old backups: {str(error)}")
 
-    def delete_local_backup(self, backup_path):
+    def delete_local_bkup(self, bkup_path):
         try:
-            subprocess.run(["rm", "-rf", backup_path])
-            print(f"Backup local '{backup_path}' excluído com sucesso.")
+            subprocess.run(["rm", "-rf", bkup_path])
+            print(f"Local backup '{bkup_path}' deleted successfully.")
         except Exception as error:
-            print(f"Erro ao excluir o backup local: {str(error)}")
+            print(f"Error deleting local backup: {str(error)}")
 
-    def perform_backup(self, zip_locally=True):
+    def perform_bkup(self, zip_locally=True):
         timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
-        backup_file = f"{self.DB_NAME}_{timestamp}.backup_postgresql"
-        local_backup_path = os.path.join(self.BACKUP_PATH, backup_file)
-        remote_backup_path = os.path.join(self.REMOTE_BACKUP_PATH, backup_file)
+        bkup_file = f"{self.DB_NAME}_{timestamp}.bkup_psql"
+        local_bkup_path = os.path.join(self.BKUP_PATH, bkup_file)
+        local_bkup_path_zip = f"{local_bkup_path}.zip"
+        remote_bkup_path = os.path.join(self.RMT_BKUP_PATH, bkup_file)
         
         os.environ['PGPASSWORD'] = self.DB_PASS
-        backup_command = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_backup_path}"
+        bkup_cmd = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_bkup_path}"
 
-        print(f"Início do backup em: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Backup started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         try:
-            os.system(backup_command)
+            os.system(bkup_cmd)
 
             if zip_locally:
-                zip_path = self.zip_file(local_backup_path, f"{local_backup_path}.zip")
-                local_backup_path = f"{local_backup_path}.zip"
-
-                if zip_path:
-                    try:
-                        self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
-                        print(f"Backup transferido (compactado): {self.REMOTE_HOST}:{remote_backup_path}")
-                        print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
-                        print(f'Backup compactado com sucesso em {zip_path}')
-                    except Exception as error:
-                        print(f"Erro ao transferir o backup compactado para o servidor remoto: {str(error)}")
+                self.zip_file(local_bkup_path, local_bkup_path_zip)
+                print(f'Bkup zipped successfully at {local_bkup_path_zip}')
+                bkup_to_send = local_bkup_path_zip
             else:
-                try:
-                    self.ssh_send_file(local_backup_path, remote_backup_path, self.REMOTE_USER, self.REMOTE_PASS)
-                    print(f"Backup transferido (não compactado): {self.REMOTE_HOST}:{remote_backup_path}")
-                    print(f"Backup realizado às {time.strftime('%H:%M:%S')}")
-                except Exception as error:
-                    print(f"Erro ao transferir o backup não compactado para o servidor remoto: {str(error)}")
+                bkup_to_send = local_bkup_path
 
-            self.delete_old_backups()
-            self.delete_local_backup(local_backup_path)
+            # Send backup to remote server
+            self.ssh_send_file(bkup_to_send, remote_bkup_path, self.RMT_USER, self.RMT_PASS)
+            print(f"Backup transferred to remote server: {self.RMT_HOST}:{remote_bkup_path}")
+            print(f"Backup completed at {time.strftime('%H:%M:%S')}")
+
+            self.delete_old_bkups()
+            self.delete_local_bkup(bkup_to_send)
+            print(f"Local backup '{bkup_to_send}' deleted successfully.")
+
         except Exception as error:
-            print(f"Erro ao transferir o backup: {str(error)}")
+            print(f"Error performing backup: {str(error)}")
 
-def schedule_backup(db_host, db_user, db_pass, db_name, backup_path, remote_host, remote_user, remote_pass, remote_backup_path, remote_port, scheduled_time):
-    backup_manager = BackupManager(
+def schedule_bkup(db_host, db_user, db_pass, db_name, bkup_path, rmt_host, rmt_user, rmt_pass, rmt_bkup_path, rmt_port, scheduled_time):
+    bkup_mgr = BackupManager(
         db_host, db_user, db_pass, db_name,
-        backup_path, remote_host, remote_user,
-        remote_pass, remote_backup_path, remote_port
+        bkup_path, rmt_host, rmt_user,
+        rmt_pass, rmt_bkup_path, rmt_port
     )
 
     schedule.every().day.at(scheduled_time).do(
-        backup_manager.perform_backup)
+        bkup_mgr.perform_bkup)
 
     while True:
         schedule.run_pending()
         time.sleep(60)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Script Python para realizar backups automáticos do PostgreSQL.")
+    parser = argparse.ArgumentParser(description="Python script to perform automatic backups of PostgreSQL.")
 
-    parser.add_argument('-t', '--scheduled_time', help='Horário para agendamento dos backups (formato HH:MM).')
-    parser.add_argument('-H', '--DB_HOST', help='Endereço IP ou nome do host do banco de dados PostgreSQL.')
-    parser.add_argument('-U', '--DB_USER', help='Nome de usuário do banco de dados PostgreSQL.')
-    parser.add_argument('-P', '--DB_PASS', help='Senha associada ao usuário do banco de dados PostgreSQL.')
-    parser.add_argument('-N', '--DB_NAME', help='Nome do banco de dados PostgreSQL.')
-    parser.add_argument('-B', '--BACKUP_PATH', help='Caminho local onde o backup será armazenado.')
-    parser.add_argument('-R', '--REMOTE_HOST', help='Endereço IP ou nome do host do servidor remoto.')
-    parser.add_argument('-r', '--REMOTE_USER', help='Nome de usuário para autenticação no servidor remoto.')
-    parser.add_argument('-p', '--REMOTE_PASS', help='Senha associada ao usuário do servidor remoto.')
-    parser.add_argument('-b', '--REMOTE_BACKUP_PATH', help='Caminho no servidor remoto onde o backup será armazenado.')
-    parser.add_argument('-C', '--REMOTE_PORT', help='Porta SSH do servidor remoto.')
+    parser.add_argument('-t', '--scheduled_time', help='Time for scheduling backups (format HH:MM).')
+    parser.add_argument('-H', '--DB_HOST', help='IP address or hostname of the PostgreSQL database.')
+    parser.add_argument('-U', '--DB_USER', help='Username of the PostgreSQL database.')
+    parser.add_argument('-P', '--DB_PASS', help='Password associated with the PostgreSQL database user.')
+    parser.add_argument('-N', '--DB_NAME', help='Name of the PostgreSQL database.')
+    parser.add_argument('-B', '--BKUP_PATH', help='Local path where the backup will be stored.')
+    parser.add_argument('-R', '--RMT_HOST', help='IP address or hostname of the remote server.')
+    parser.add_argument('-r', '--RMT_USER', help='Username for authentication on the remote server.')
+    parser.add_argument('-p', '--RMT_PASS', help='Password associated with the remote server user.')
+    parser.add_argument('-b', '--RMT_BKUP_PATH', help='Path on the remote server where the backup will be stored.')
+    parser.add_argument('-C', '--RMT_PORT', help='SSH port of the remote server.')
+    parser.add_argument('-z', '--ZIP_LOCALLY', action='store_true', help='Flag to indicate whether to zip the backup locally.')
 
     args = parser.parse_args()
 
     if not all(vars(args).values()):
-        print("Todos os parâmetros necessários são obrigatórios. Execute o script com -h para ver a descrição dos parâmetros.")
+        print("All necessary parameters are mandatory. Run the script with -h to see parameter descriptions.")
         sys.exit(1)
 
-    schedule_backup(
+    schedule_bkup(
         args.DB_HOST, args.DB_USER, args.DB_PASS, args.DB_NAME,
-        args.BACKUP_PATH, args.REMOTE_HOST, args.REMOTE_USER,
-        args.REMOTE_PASS, args.REMOTE_BACKUP_PATH, args.REMOTE_PORT,
-        args.scheduled_time
+        args.BKUP_PATH, args.RMT_HOST, args.RMT_USER,
+        args.RMT_PASS, args.RMT_BKUP_PATH, args.RMT_PORT,
+        args.scheduled_time, args.ZIP_LOCALLY
     )
