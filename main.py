@@ -100,7 +100,6 @@ class BackupManager:
             else:
                 bkup_to_send = local_bkup_path
 
-            # Send backup to remote server
             self.ssh_send_file(bkup_to_send, remote_bkup_path, self.RMT_USER, self.RMT_PASS)
             print(f"Backup transferred to remote server: {self.RMT_HOST}:{remote_bkup_path}")
             print(f"Backup completed at {time.strftime('%H:%M:%S')}")
