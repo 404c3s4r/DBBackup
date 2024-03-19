@@ -112,7 +112,7 @@ class BackupManager:
         except Exception as error:
             print(f"Error performing backup: {str(error)}")
 
-def schedule_bkup(db_host, db_user, db_pass, db_name, bkup_path, rmt_host, rmt_user, rmt_pass, rmt_bkup_path, rmt_port, scheduled_time):
+def schedule_bkup(db_host, db_user, db_pass, db_name, bkup_path, rmt_host, rmt_user, rmt_pass, rmt_bkup_path, rmt_port, scheduled_time, zip_locally):
     bkup_mgr = BackupManager(
         db_host, db_user, db_pass, db_name,
         bkup_path, rmt_host, rmt_user,
@@ -120,7 +120,7 @@ def schedule_bkup(db_host, db_user, db_pass, db_name, bkup_path, rmt_host, rmt_u
     )
 
     schedule.every().day.at(scheduled_time).do(
-        bkup_mgr.perform_bkup)
+        bkup_mgr.perform_bkup, zip_locally)
 
     while True:
         schedule.run_pending()
