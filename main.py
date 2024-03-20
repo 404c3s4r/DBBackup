@@ -4,7 +4,7 @@ import subprocess
 import time
 import schedule
 import paramiko
-import zipfile
+from zipfile import ZipFile, ZIP_DEFLATED
 import sys
 
 class BackupManager:
@@ -19,16 +19,6 @@ class BackupManager:
         self.RMT_PASS = rmt_pass
         self.RMT_BKUP_PATH = rmt_bkup_path
         self.RMT_PORT = rmt_port
-
-    def zip_file(self, src, dest):
-        try:
-            with zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED) as zf:
-                zf.write(src, os.path.basename(src))
-                print(f"Zip file created successfully at {dest}")
-                return dest
-        except Exception as error:
-            print(f"Error creating ZIP file: {str(error)}")
-            return None
 
     def ssh_send_file(self, src, dest, usr, pwd):
         transport = paramiko.Transport((self.RMT_HOST, 22))
@@ -82,7 +72,6 @@ class BackupManager:
         timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
         bkup_file = f"{self.DB_NAME}_{timestamp}.bkup_psql"
         local_bkup_path = os.path.join(self.BKUP_PATH, bkup_file)
-        local_bkup_path_zip = f"{local_bkup_path}.zip"
         remote_bkup_path = os.path.join(self.RMT_BKUP_PATH, bkup_file)
         
         os.environ['PGPASSWORD'] = self.DB_PASS
@@ -94,19 +83,27 @@ class BackupManager:
             os.system(bkup_cmd)
 
             if zip_locally:
-                self.zip_file(local_bkup_path, local_bkup_path_zip)
-                print(f'Bkup zipped successfully at {local_bkup_path_zip}')
-                bkup_to_send = local_bkup_path_zip
-            else:
-                bkup_to_send = local_bkup_path
+                semextensao = bkup_file.split('.')[0]
+                nomezip = os.path.join(self.BKUP_PATH, semextensao + '.zip')
+                with ZipFile(nomezip, "w", compression=ZIP_DEFLATED) as arquivozip:
+                    arquivozip.write(local_bkup_path, bkup_file)
 
-            self.ssh_send_file(bkup_to_send, remote_bkup_path, self.RMT_USER, self.RMT_PASS)
+                file_to_send = nomezip
+            else:
+                file_to_send = local_bkup_path
+
+            self.ssh_send_file(file_to_send, remote_bkup_path, self.RMT_USER, self.RMT_PASS)
             print(f"Backup transferred to remote server: {self.RMT_HOST}:{remote_bkup_path}")
             print(f"Backup completed at {time.strftime('%H:%M:%S')}")
 
             self.delete_old_bkups()
-            self.delete_local_bkup(bkup_to_send)
-            print(f"Local backup '{bkup_to_send}' deleted successfully.")
+            self.delete_local_bkup(local_bkup_path)
+            if zip_locally:
+                self.delete_local_bkup(file_to_send)
+                print(f"Local backup '{file_to_send}' deleted successfully.")
+            else:
+                self.delete_local_bkup(local_bkup_path)
+                print(f"Local backup '{local_bkup_path}' deleted successfully.")
 
         except Exception as error:
             print(f"Error performing backup: {str(error)}")
