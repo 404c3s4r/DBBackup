@@ -22,16 +22,3 @@ class EmailSender:
             servidor.starttls()  # Habilita a criptografia TLS
             servidor.login(self.remetente, self.senha)
             servidor.send_message(mensagem)
-
-# Exemplo de uso
-if __name__ == "__main__":
-    remetente = "seu_email@hotmail.com"  # Preencha com seu e-mail
-    senha = "sua_senha"  # Preencha com sua senha
-    destinatario = "destinatario@hotmail.com"  # Preencha com o destinatário do e-mail
-    assunto = "Assunto do e-mail"
-    corpo = "Corpo do e-mail"
-
-    sender = EmailSender(remetente, senha)
-    print("Enviando e-mail para", destinatario, "...")
-    sender.enviar_email(destinatario, assunto, corpo)
-    print("E-mail enviado!")
