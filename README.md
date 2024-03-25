@@ -1,5 +1,6 @@
-# backup_postgresql_linux
-I created the script initially to automate the backup process in a company that had a Linux system with PostgreSQL installed (that's why I named it postgresbackup).
+<h1 align="center">DBBackup</h1>
+
+The initial intention was to automate the backup process in a company that used a Debian system and had a PostgreSQL database running an Alterdata database, which employees used. It was necessary to perform a backup daily, from Monday to Sunday, after business hours. Over time, I will be adding new functionalities, such as backup status via email, malware checking on the server running the database, backup redundancy, and other features aimed at ensuring that the backup is done securely and efficiently.
 
 ## How to Use?
 
@@ -20,17 +21,17 @@ main.py -h
 This command will display the tool's help.
 
 ```yaml
--t [backup_time]: Specifies the time for the backup.
--H [database_host]: Defines the IP address or hostname of the PostgreSQL database.
--U [database_user]: Specifies the username of the PostgreSQL database.
--P [database_password]: Sets the password for the PostgreSQL database user.
--N [database_name]: Specifies the name of the PostgreSQL database to be backed up.
--B [local_backup_path]: Specifies the local directory where the backups will be stored.
--R [remote_host]: Indicates the IP address or hostname of the remote server.
--r [remote_user]: Specifies the username for authentication on the remote server.
--p [remote_password]: Sets the password associated with the remote server user.
--b "[remote_server_path]": Specifies the path on the remote server where the backups will be stored.
--C [ssh_port]: Specifies the SSH port of the remote server.
+-t [backup_time]: Specifies the time for the backup;
+-H [database_host]: Defines the IP address or hostname of the PostgreSQL database;
+-U [database_user]: Specifies the username of the PostgreSQL database;
+-P [database_password]: Sets the password for the PostgreSQL database user;
+-N [database_name]: Specifies the name of the PostgreSQL database to be backed up;
+-B [local_backup_path]: Specifies the local directory where the backups will be stored;
+-R [remote_host]: Indicates the IP address or hostname of the remote server;
+-r [remote_user]: Specifies the username for authentication on the remote server;
+-p [remote_password]: Sets the password associated with the remote server user;
+-b "[remote_server_path]": Specifies the path on the remote server where the backups will be stored;
+-C [ssh_port]: Specifies the SSH port of the remote server;
 -z: Flag to indicate whether to zip the backup locally.
 
 ```
@@ -48,6 +49,7 @@ python3 main.py -t [backup_time] -H [database_host] -U [database_user] -P [datab
 - RAID 5 employed for distributed and redundant data storage.
 - Functionality implemented to send backup status notifications via email or WhatsApp.
 - Failover mechanism implemented: If the database is deleted or any issues occur, the code automatically retrieves the latest backup from the remote server to create a new database.
+- Malware checking on the server running the database
 
 ## Technology Used:
 - **Python** 
@@ -55,7 +57,7 @@ python3 main.py -t [backup_time] -H [database_host] -U [database_user] -P [datab
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
-## 🔗 Links
+## 🔗 My portfolio
 [![linkedin](https://img.shields.io/badge/linkedin-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/robertocoliver/)
 [![portfolio](https://img.shields.io/badge/my_portfolio-000?style=for-the-badge&logo=ko-fi&logoColor=white)](https://medium.com/@robertocoliver)
 
