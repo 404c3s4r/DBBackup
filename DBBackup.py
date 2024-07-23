@@ -75,7 +75,7 @@ class BackupManager:
         remote_bkup_path = os.path.join(self.RMT_BKUP_PATH, bkup_file)
         
         os.environ['PGPASSWORD'] = self.DB_PASS
-        bkup_cmd = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --format custom --blobs -F c > {local_bkup_path}"
+        bkup_cmd = f"pg_dump -U {self.DB_USER} -h {self.DB_HOST} -d {self.DB_NAME} --role 'ALTERDATA_GROUP_ALTERDATA_PACK' --clean --verbose --format custom --blobs -F c -E utf8 {local_bkup_path}"
 
         print(f"Backup started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
